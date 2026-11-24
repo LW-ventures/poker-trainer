@@ -78,6 +78,8 @@ export interface GameState {
   quiz: QuizState | null
   bubbles: Record<number, Bubble | undefined>
   botBluffs: { seat: number; street: Street }[]
+  /** Bereits gestellte Fragen dieser Hand ("Straße:Typ"), damit nach einem Raise nichts doppelt kommt */
+  asked: string[]
   decisions: HeroDecision[]
   resolution: Resolution | null
   resolutionOpen: boolean
@@ -201,9 +203,11 @@ export const useGame = create<GameState>((set, get) => {
       if (!h || h.over || h.toAct !== 0) return
       const s = getSettings()
       const spot = analyseSpot(h, 0, s.bb)
-      const qs = planQuestions(spot, s, level(), s.bb)
+      const qkey = (q: { street: string; type: string }) => `${q.street}:${q.type}`
+      const qs = planQuestions(spot, s, level(), s.bb).filter((q) => !st.asked.includes(qkey(q)))
       set({
         spot,
+        asked: [...st.asked, ...qs.map(qkey)],
         lastRanges: spot.ranges.length ? spot.ranges : st.lastRanges,
         quiz: qs.length ? { questions: qs, idx: 0, results: [], answered: false, startedAt: Date.now() } : null,
         phase: qs.length ? 'quiz' : 'hero',
@@ -380,6 +384,7 @@ export const useGame = create<GameState>((set, get) => {
     quiz: null,
     bubbles: {},
     botBluffs: [],
+    asked: [],
     decisions: [],
     resolution: null,
     resolutionOpen: false,
@@ -437,6 +442,7 @@ export const useGame = create<GameState>((set, get) => {
         quiz: null,
         bubbles: {},
         botBluffs: [],
+        asked: [],
         decisions: [],
         resolution: null,
         resolutionOpen: false,

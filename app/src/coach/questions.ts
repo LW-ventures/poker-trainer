@@ -71,6 +71,17 @@ export function qOuts(hole: [Card, Card], board: Card[], info: OutsInfo, street:
     explain.push(`${info.dirty.length} weitere Karten verbessern dich, geben dem Gegner aber vermutlich ein besseres Blatt. Sie zählen nicht als saubere Outs.`)
   if (info.byKind.flush.length && info.byKind.straight.length)
     explain.push('Karten, die Flush und Straße zugleich machen, zählst du nur einmal.')
+  // Wie wahrscheinlich kommt eines dieser Outs noch?
+  const outs = info.outs.length
+  const unk = unknownCards(board.length)
+  const draws = 5 - board.length
+  const next = hitChance(outs, unk, 1) * 100
+  explain.push(`Trefferchance mit ${outs} Outs, ${unk} Karten sind unbekannt:`)
+  explain.push(`Nächste Karte: ${outs} ÷ ${unk} = ${f1(next / 100)}. Faustregel: ${outs} × 2 = ${ruleOfThumb(outs, 1)} %.`)
+  if (draws === 2) {
+    const river = hitChance(outs, unk, 2) * 100
+    explain.push(`Bis zum River (zwei Karten): ${f1(river / 100)}. Faustregel: ${outs} × 4${outs > 8 ? ` − ${outs - 8}` : ''} = ${ruleOfThumb(outs, 2)} %.`)
+  }
   return {
     id: nid(),
     type: 'outs',

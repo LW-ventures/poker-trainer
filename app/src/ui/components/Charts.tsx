@@ -15,7 +15,10 @@ export function LineChart({ series, h = 200, yFmt }: { series: Series[]; h?: num
     let hi = Math.max(0, ...all)
     if (hi - lo < 1) hi = lo + 1
     const m = (hi - lo) * 0.08
-    return { lo: lo - m, hi: hi + m, n: Math.max(...series.map((s) => s.values.length)) }
+    // Die Null-Linie ist selbst die Grenze: nur dort Luft lassen, wo es Werte darüber/darunter gibt
+    lo = lo < 0 ? lo - m : 0
+    hi = hi > 0 ? hi + m : 0
+    return { lo, hi, n: Math.max(...series.map((s) => s.values.length)) }
   }, [series])
   const x = (i: number) => pad.l + (n <= 1 ? 0 : (i / (n - 1)) * (W - pad.l - pad.r))
   const y = (v: number) => pad.t + (1 - (v - lo) / (hi - lo)) * (h - pad.t - pad.b)
@@ -32,15 +35,19 @@ export function LineChart({ series, h = 200, yFmt }: { series: Series[]; h?: num
           <path className={s.cls} d={path(s.values)} strokeLinejoin="round" />
         </g>
       ))}
-      <text x={W - 4} y={y(hi) - 3} textAnchor="end">
-        {f(hi)}
-      </text>
+      {hi > 0 && (
+        <text x={W - 4} y={y(hi) - 3} textAnchor="end">
+          {f(hi)}
+        </text>
+      )}
       <text x={W - 4} y={y(0) - 3} textAnchor="end">
         0
       </text>
-      <text x={W - 4} y={y(lo) - 3} textAnchor="end">
-        {f(lo)}
-      </text>
+      {lo < 0 && (
+        <text x={W - 4} y={y(lo) - 3} textAnchor="end">
+          {f(lo)}
+        </text>
+      )}
     </svg>
   )
 }

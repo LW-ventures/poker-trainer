@@ -57,6 +57,10 @@ describe('Coach', () => {
     const info = findOuts(hole, board)
     expect(qOuts(hole, board, info, 'flop').answer).toBe(12) // 9 Herz + 3 Asse
     expect(qHit(hole, board, info, 'flop').answer).toBeCloseTo(45.0, 0)
+    // Die Auflösung der Outs-Frage nennt auch die Trefferchancen in Prozent
+    const ex = qOuts(hole, board, info, 'flop').explain.join(' ')
+    expect(ex).toContain('Nächste Karte: 12 ÷ 47 = 25,5 %')
+    expect(ex).toContain('Bis zum River (zwei Karten): 45,0 %')
     expect(qPotOdds(20, 80, 'flop').answer).toBeCloseTo(20, 5)
     const b = qBeats(parseCards('As Kd') as [number, number], parseCards('Kc 9h 5h'), 'flop')
     expect(b.answer).toBeGreaterThan(0)
