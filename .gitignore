@@ -1,0 +1,6 @@
+PLAN.md
+app/node_modules
+app/dist
+app/dev-dist
+*.log
+.DS_Store

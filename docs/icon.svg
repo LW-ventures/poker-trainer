@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0c1210"/>
+  <polygon points="148,70 442,70 442,364 364,442 70,442 70,148" fill="#123a2f" stroke="#e3b341" stroke-width="10" stroke-linejoin="miter"/>
+  <text x="256" y="345" font-size="250" font-weight="700" text-anchor="middle" fill="#e3b341" font-family="Segoe UI Symbol, Arial, sans-serif">&#9824;&#xFE0E;</text>
+</svg>
