@@ -192,7 +192,8 @@ function findLeaks(a: Agg, decs: DecisionRec[], hands: number): Leak[] {
         costBB100: per100((v.n - v.ok) * 0.4),
         level: k.includes('Gutshot') || k.includes('Overcard') ? 1 : 2,
       })
-  const badCalls = decs.filter((d) => d.action === 'Call' && (d.grade === 'bad' || d.grade === 'ok') && d.lossBB > 0.35)
+  // Nur wenn Fold wirklich besser war (nicht, wenn ein Raise noch besser gewesen wäre)
+  const badCalls = decs.filter((d) => d.action === 'Call' && (d.grade === 'bad' || d.grade === 'ok') && d.lossBB > 0.35 && (d.bestKey === undefined || d.bestKey === 'fold'))
   if (badCalls.length >= 3)
     out.push({ id: 'calls', text: `Du callst zu oft ohne passende Odds (${badCalls.length}-mal).`, costBB100: per100(badCalls.reduce((t, d) => t + d.lossBB, 0)), level: 5 })
   const badFolds = decs.filter((d) => d.action === 'Fold' && d.lossBB > 0.35 && d.kind === 'facing')

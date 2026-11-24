@@ -8,6 +8,8 @@ export interface Settings {
   quizMode: QuizMode
   types: { outs: boolean; hit: boolean; potodds: boolean; preflop: boolean; beats: boolean; bluffshare: boolean }
   feedback: 'instant' | 'after'
+  /** Sekunden, die das Board sichtbar bleibt, bevor eine Frage erscheint */
+  quizDelay: number
   tolerance: Tolerance
   help: { outs: boolean; potodds: boolean; equity: boolean }
   opp1: BotId | 'random'
@@ -28,6 +30,7 @@ export const DEFAULTS: Settings = {
   quizMode: 'important',
   types: { outs: true, hit: true, potodds: true, preflop: true, beats: true, bluffshare: true },
   feedback: 'instant',
+  quizDelay: 5,
   tolerance: 'normal',
   help: { outs: false, potodds: false, equity: false },
   opp1: 'random',
@@ -52,7 +55,16 @@ export const useSettings = create<State>()(
       set: (p) => set(p),
       reset: () => set({ ...DEFAULTS }),
     }),
-    { name: 'pokerschule-settings', version: 3, migrate: (s) => ({ ...(s as object), fourColor: false, opp3: 'random' }) as State },
+    {
+      name: 'pokerschule-settings',
+      version: 4,
+      migrate: (s, from) =>
+        ({
+          ...(s as object),
+          ...(from < 3 ? { fourColor: false, opp3: 'random' } : {}),
+          quizDelay: DEFAULTS.quizDelay,
+        }) as State,
+    },
   ),
 )
 export const getSettings = (): Settings => {

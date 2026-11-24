@@ -12,7 +12,7 @@ import type { WCombo } from '../engine/ranges'
 export type Grade = 'good' | 'ok' | 'bad'
 
 export interface Option {
-  key: 'fold' | 'call' | 'raiseHalf' | 'raisePot'
+  key: 'fold' | 'call' | 'check' | 'raiseHalf' | 'raisePot'
   label: string
   ev: number // Chips relativ zum Fold
   to?: number
@@ -80,18 +80,23 @@ export function analyseSpot(h: HandState, seat: number, bb: number): SpotAnalysi
   const specs: SeatSpec[] = [{ kind: 'hand', cards: s.hole }, ...base.ranges.map((r) => ({ kind: 'range' as const, combos: r.combos }))]
   base.eq = equity(specs, h.board, 4000)[0]
 
-  if (lg.toCall > 0) {
-    const eq = base.eq
-    const options: Option[] = [{ key: 'fold', label: 'Fold', ev: 0 }, { key: 'call', label: 'Call', ev: eq * pot - (1 - eq) * lg.toCall }]
-    if (lg.canRaise) {
-      for (const [key, frac, label] of [['raiseHalf', 0.5, 'Raise ½ Pot'], ['raisePot', 1, 'Raise Pot']] as const) {
-        const to = Math.min(lg.maxRaiseTo, Math.max(lg.minRaiseTo, Math.round(h.currentBet + (pot + lg.toCall) * frac)))
-        options.push({ key, label, ev: raiseEv(h, seat, bb, base, to), to })
-      }
+  const eq = base.eq
+  const facing = lg.toCall > 0
+  // Vor dir liegt ein Einsatz: Fold, Call, Raise. Sonst: Check oder selbst setzen.
+  const options: Option[] = facing
+    ? [{ key: 'fold', label: 'Fold', ev: 0 }, { key: 'call', label: 'Call', ev: eq * pot - (1 - eq) * lg.toCall }]
+    : [{ key: 'check', label: 'Check', ev: eq * pot }]
+  if (lg.canRaise) {
+    const sizes = facing
+      ? ([['raiseHalf', 0.5, 'Raise ½ Pot'], ['raisePot', 1, 'Raise Pot']] as const)
+      : ([['raiseHalf', 0.5, 'Bet ½ Pot'], ['raisePot', 1, 'Bet Pot']] as const)
+    for (const [key, frac, label] of sizes) {
+      const to = Math.min(lg.maxRaiseTo, Math.max(lg.minRaiseTo, Math.round(h.currentBet + (pot + lg.toCall) * frac)))
+      options.push({ key, label, ev: raiseEv(h, seat, bb, base, to), to })
     }
-    base.options = options
-    base.best = options.reduce((a, b) => (b.ev > a.ev ? b : a))
   }
+  base.options = options
+  base.best = options.reduce((a, b) => (b.ev > a.ev ? b : a))
   return base
 }
 
@@ -133,6 +138,7 @@ export interface DecisionGrade {
   lossBB: number
   chosenEv: number | null
   bestEv: number | null
+  bestKey?: Option['key']
   text: string
 }
 
@@ -152,27 +158,43 @@ export function gradeDecision(sp: SpotAnalysis, action: Action, bb: number): Dec
       text: `Empfehlung: ${label[adv]}. ${mild ? 'Beides ist vertretbar.' : 'Diese Entscheidung kostet auf Dauer Chips.'}`,
     }
   }
-  if (sp.toCall === 0 || sp.options.length === 0)
-    return { kind: 'free', grade: null, lossBB: 0, chosenEv: null, bestEv: null, text: 'Ohne Einsatz vor dir wird die Aktion nicht bewertet.' }
+  if (sp.options.length === 0 || !sp.best)
+    return { kind: 'free', grade: null, lossBB: 0, chosenEv: null, bestEv: null, text: 'Diese Aktion wurde nicht bewertet.' }
 
+  const facing = sp.toCall > 0
   let chosen: Option | undefined
   if (k === 'fold') chosen = sp.options.find((o) => o.key === 'fold')
-  else if (k === 'call') chosen = sp.options.find((o) => o.key === 'call')
+  else if (k === 'call') chosen = sp.options.find((o) => o.key === 'call' || o.key === 'check')
   else {
     const raises = sp.options.filter((o) => o.to !== undefined)
     const to = (action as { to: number }).to
     chosen = raises.reduce<Option | undefined>((a, o) => (!a || Math.abs(o.to! - to) < Math.abs(a.to! - to) ? o : a), undefined)
-    chosen = chosen ?? sp.options.find((o) => o.key === 'call')
+    chosen = chosen ?? sp.options.find((o) => o.key === 'call' || o.key === 'check')
   }
-  const best = sp.best!
-  const loss = Math.max(0, best.ev - (chosen?.ev ?? 0)) / bb
-  const grade: Grade = loss <= 0.35 ? 'good' : loss <= 1.5 ? 'ok' : 'bad'
-  const eqTxt = sp.eq !== null ? `${(sp.eq * 100).toFixed(0)} % Gewinnchance gegen seine geschätzte Range, nötig sind ${(sp.need * 100).toFixed(0)} %.` : ''
+  const best = sp.best
+  const chosenEv = chosen?.ev ?? 0
+  const loss = Math.max(0, best.ev - chosenEv) / bb
+  // Ohne Einsatz vor dir liegen Check und Bet oft nah beieinander: großzügiger bewerten, abhängig vom Pot.
+  const potBB = sp.pot / bb
+  const goodMax = facing ? 0.35 : Math.max(0.35, potBB * 0.06)
+  const okMax = facing ? 1.5 : Math.max(1.5, potBB * 0.2)
+  const grade: Grade = loss <= goodMax ? 'good' : loss <= okMax ? 'ok' : 'bad'
+  const pc = (x: number) => `${(x * 100).toFixed(0)} %`
+  const bbTxt = (ev: number) => `${ev >= 0 ? '+' : ''}${(ev / bb).toFixed(1).replace('.', ',')} BB`
+  const eqTxt =
+    sp.eq === null
+      ? ''
+      : facing
+        ? `Du hast ${pc(sp.eq)} Gewinnchance gegen seine geschätzte Range, für den Call nötig sind ${pc(sp.need)}.`
+        : `Du hast ${pc(sp.eq)} Gewinnchance gegen ihre geschätzten Ranges.`
+  const choiceTxt = `${chosen?.label ?? 'Deine Aktion'} ${bbTxt(chosenEv)}, ${best.label} ${bbTxt(best.ev)}`
   const txt =
     grade === 'good'
       ? `Gute Entscheidung. ${eqTxt}`
-      : `Besser wäre ${best.label} gewesen (${best.ev >= 0 ? '+' : ''}${(best.ev / bb).toFixed(1).replace('.', ',')} BB statt ${((chosen?.ev ?? 0) / bb).toFixed(1).replace('.', ',')} BB). ${eqTxt}`
-  return { kind: 'facing', grade, lossBB: loss, chosenEv: chosen?.ev ?? 0, bestEv: best.ev, text: txt }
+      : grade === 'ok'
+        ? `Grenzwertig: ${best.label} wäre etwas besser gewesen (${choiceTxt}). Beides ist vertretbar. ${eqTxt}`
+        : `Fehler: ${best.label} wäre deutlich besser gewesen (${choiceTxt}). ${eqTxt}`
+  return { kind: facing ? 'facing' : 'free', grade, lossBB: loss, chosenEv, bestEv: best.ev, bestKey: best.key, text: txt.trim() }
 }
 
 export const streetName = (s: Street) => STREET_DE[s]

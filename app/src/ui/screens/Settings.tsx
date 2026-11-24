@@ -66,6 +66,9 @@ export function Settings({ onBack }: { onBack: () => void }) {
         <Row k="Wie oft fragen?" sub="„Nur wichtige Spots“ fragt bei Draws, großen Einsätzen und knappen Entscheidungen." stack>
           <Seg<QuizMode> value={s.quizMode} onChange={(v) => s.set({ quizMode: v })} options={[{ v: 'off', l: 'Aus' }, { v: 'important', l: 'Wichtig' }, { v: 'every', l: 'Jede Straße' }]} />
         </Row>
+        <Row k="Zeit vor der Frage" sub="So lange kannst du dir das Board ansehen, bevor die Frage erscheint." stack>
+          <Seg<number> value={s.quizDelay} onChange={(v) => s.set({ quizDelay: v })} options={[{ v: 0, l: 'Sofort' }, { v: 3, l: '3 s' }, { v: 5, l: '5 s' }, { v: 8, l: '8 s' }, { v: 12, l: '12 s' }]} />
+        </Row>
         <Row k="Feedback" sub="Nach jeder Antwort oder gesammelt nach der Hand." stack>
           <Seg value={s.feedback} onChange={(v) => s.set({ feedback: v })} options={[{ v: 'instant', l: 'Sofort' }, { v: 'after', l: 'Nach der Hand' }]} />
         </Row>

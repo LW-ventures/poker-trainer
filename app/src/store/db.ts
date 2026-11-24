@@ -62,6 +62,8 @@ export interface DecisionRec {
   need: number
   action: string
   facedBluff: boolean
+  /** Was die Analyse stattdessen empfohlen hat (fold, call, check, raiseHalf, raisePot) */
+  bestKey?: string
 }
 export interface AnswerRec {
   id?: number

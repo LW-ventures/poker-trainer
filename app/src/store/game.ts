@@ -205,13 +205,21 @@ export const useGame = create<GameState>((set, get) => {
       const spot = analyseSpot(h, 0, s.bb)
       const qkey = (q: { street: string; type: string }) => `${q.street}:${q.type}`
       const qs = planQuestions(spot, s, level(), s.bb).filter((q) => !st.asked.includes(qkey(q)))
+      const wait = qs.length ? Math.max(0, s.quizDelay ?? 0) * 1000 : 0
       set({
         spot,
         asked: [...st.asked, ...qs.map(qkey)],
         lastRanges: spot.ranges.length ? spot.ranges : st.lastRanges,
         quiz: qs.length ? { questions: qs, idx: 0, results: [], answered: false, startedAt: Date.now() } : null,
-        phase: qs.length ? 'quiz' : 'hero',
+        phase: qs.length && wait === 0 ? 'quiz' : qs.length ? 'think' : 'hero',
       })
+      // Erst das Board in Ruhe anschauen lassen, dann kommt die Frage
+      if (qs.length && wait > 0)
+        later(() => {
+          const cur = get()
+          if (!cur.hand || cur.hand.over || cur.hand.toAct !== 0 || cur.phase !== 'think' || !cur.quiz) return
+          set({ phase: 'quiz', quiz: { ...cur.quiz, startedAt: Date.now() } })
+        }, wait)
     }, 30)
   }
 
@@ -322,6 +330,7 @@ export const useGame = create<GameState>((set, get) => {
             need: d.need,
             action: d.action,
             facedBluff: d.facedBluff,
+            bestKey: d.grade?.bestKey,
           }),
         0,
       )

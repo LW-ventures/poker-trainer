@@ -145,7 +145,7 @@ export function Table({ onExit, onSettings, onResolution }: { onExit: () => void
               'Beantworte die Frage, dann entscheidest du.'
             ) : (
               <span>
-                {h.over ? 'Showdown' : turn === 0 ? 'Du bist dran' : turn >= 0 ? `${h.seats[turn].name} denkt` : 'Einen Moment'}{' '}
+                {h.over ? 'Showdown' : turn === 0 ? (g.quiz && !g.quiz.answered ? 'Schau dir das Board an, gleich kommt eine Frage' : 'Du bist dran') : turn >= 0 ? `${h.seats[turn].name} denkt` : 'Einen Moment'}{' '}
                 <span className="dots">
                   <span />
                   <span />

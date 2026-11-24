@@ -22,7 +22,52 @@ function playUntilHeroFacesBet(seed: number): HandState | null {
   return null
 }
 
+/** Spielt bis der Held auf dem Flop oder später als Erster dran ist (kein Einsatz vor ihm). */
+function playUntilHeroActsFree(seed: number): HandState | null {
+  const rng = seededRng(seed)
+  let h = startHand(
+    [
+      { name: 'Du', human: true, stack: 2000 },
+      { name: 'A', human: false, style: 'rex', stack: 2000 },
+      { name: 'B', human: false, style: 'max', stack: 2000 },
+      { name: 'C', human: false, style: 'carla', stack: 2000 },
+    ],
+    seed % 4,
+    10,
+    20,
+    rng,
+  )
+  for (let g = 0; g < 60 && !h.over; g++) {
+    if (h.toAct === 0) {
+      if (h.board.length >= 3 && h.currentBet === h.seats[0].bet) return h
+      h = act(h, h.currentBet > h.seats[0].bet ? { type: 'call' } : { type: 'check' }, 20)
+    } else {
+      h = act(h, botMove(h, h.toAct, 20, rng).action, 20)
+    }
+  }
+  return null
+}
+
 describe('Coach', () => {
+  it('Eigene Bets und Checks ohne Einsatz vor dir werden ebenfalls bewertet', () => {
+    let found = 0
+    for (let seed = 1; seed < 150 && found < 5; seed++) {
+      const h = playUntilHeroActsFree(seed)
+      if (!h) continue
+      found++
+      const sp = analyseSpot(h, 0, 20)
+      expect(sp.toCall).toBe(0)
+      expect(sp.options.find((o) => o.key === 'check')).toBeDefined()
+      const chk = gradeDecision(sp, { type: 'check' }, 20)
+      expect(chk.grade).not.toBeNull()
+      expect(chk.kind).toBe('free')
+      expect(chk.text).not.toContain('nicht bewertet')
+      const bet = gradeDecision(sp, { type: 'raise', to: 60 }, 20)
+      expect(bet.grade).not.toBeNull()
+    }
+    expect(found).toBeGreaterThan(2)
+  })
+
   it('Analyse eines Spots gegen einen Einsatz ist schnell und plausibel', () => {
     let found = 0
     let worst = 0
