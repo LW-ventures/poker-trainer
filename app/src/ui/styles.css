@@ -355,9 +355,9 @@ p {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: calc(var(--w) * 0.42);
-  height: calc(var(--w) * 0.42);
-  transform: translate(-30%, -35%);
+  width: calc(var(--w) * 0.44);
+  height: calc(var(--w) * 0.44);
+  transform: translate(-50%, -50%);
 }
 .pc .court {
   position: absolute;
