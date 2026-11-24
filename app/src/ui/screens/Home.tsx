@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChartLineUp, Gear, GraduationCap, Table as TableIcon, Target } from '@phosphor-icons/react'
+import { ChartLineUp, Gear, GraduationCap, Table as TableIcon, Target, UsersThree } from '@phosphor-icons/react'
 import { parseCards } from '../../engine/cards'
 import { loadStats, type Agg } from '../../stats/aggregate'
 import { useGame } from '../../store/game'
@@ -10,13 +10,14 @@ import { PlayingCard } from '../components/Card'
 import { Spark } from '../components/Charts'
 import { useSettings } from '../../store/settings'
 
-export type ScreenName = 'home' | 'table' | 'stats' | 'learn' | 'drill' | 'settings' | 'facts'
+export type ScreenName = 'home' | 'table' | 'stats' | 'learn' | 'drill' | 'settings' | 'facts' | 'online'
 
 const FAN = parseCards('As Ah Kd')
 
 export function Home({ go }: { go: (s: ScreenName) => void }) {
   const [agg, setAgg] = useState<Agg | null>(null)
   const session = useGame((s) => s.session)
+  const online = useGame((s) => s.online)
   const startSession = useGame((s) => s.startSession)
   const leave = useGame((s) => s.leave)
   const level = useProgress((s) => s.maxLevel)
@@ -72,10 +73,10 @@ export function Home({ go }: { go: (s: ScreenName) => void }) {
       </section>
 
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <Btn variant="primary" block onClick={() => { if (!session) startSession(); go('table') }} style={{ minHeight: 60, fontSize: 19 }}>
-          {session ? 'Weiterspielen' : 'Neue Session'}
+        <Btn variant="primary" block onClick={() => { if (online) { go('table'); return } if (!session) startSession(); go('table') }} style={{ minHeight: 60, fontSize: 19 }}>
+          {online ? 'Zurück an den Online-Tisch' : session ? 'Weiterspielen' : 'Neue Session'}
         </Btn>
-        {session && (
+        {session && !online && (
           <Btn variant="ghost" onClick={() => leave()}>
             Beenden
           </Btn>
@@ -97,6 +98,15 @@ export function Home({ go }: { go: (s: ScreenName) => void }) {
             {Array.from({ length: 10 }, (_, i) => (
               <i key={i} className={i < level ? 'on' : ''} />
             ))}
+          </div>
+        </button>
+        <button className="tile wide edge cutB" onClick={() => go('online')} style={{ minHeight: 76 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div className="t">Mit Freunden spielen</div>
+              <div className="d">{online ? 'Dein Online-Tisch läuft.' : 'Gemeinsame Lobby, nur ein Name nötig. Bots füllen auf.'}</div>
+            </div>
+            <UsersThree size={30} />
           </div>
         </button>
         <button className="tile edge cutB" onClick={() => go('drill')}>

@@ -7,6 +7,7 @@ import { evaluate, describe } from '../../engine/evaluator'
 import { legal, posOf, potOf, STREET_DE, type HandState, type Seat as SeatT } from '../../engine/game'
 import { pct } from '../../engine/odds'
 import { useGame } from '../../store/game'
+import { useOnline } from '../../store/online'
 import { useSettings } from '../../store/settings'
 import { fmt, fmtBB, fmtSigned } from '../../util/format'
 import { Btn } from '../components/Bits'
@@ -30,6 +31,8 @@ function summary(h: HandState): string | null {
 export function Table({ onExit, onSettings, onResolution }: { onExit: () => void; onSettings: () => void; onResolution: () => void }) {
   const g = useGame()
   const st = useSettings()
+  const ready = useOnline((s) => s.ready)
+  const iAmReady = useOnline((s) => !!s.view && s.view.ready.includes(s.view.me))
   const h = g.hand
   const [raiseOpen, setRaiseOpen] = useState(false)
   useEffect(() => {
@@ -53,6 +56,10 @@ export function Table({ onExit, onSettings, onResolution }: { onExit: () => void
   const heroHit = (c: Card) => !!winBest && winners.has(0) && winBest.includes(c)
   const line = revealed ? summary(h) : null
   const net = g.session.net
+  // Ab 5 Spielern rücken die Gegner enger zusammen
+  const nOpp = h.seats.length - 1
+  const dense = nOpp > 3
+  const cols = nOpp <= 4 ? Math.max(3, nOpp) : Math.ceil(nOpp / 2)
 
   return (
     <div className={`table-screen ${st.fourColor ? '' : 'two-color'}`}>
@@ -61,7 +68,7 @@ export function Table({ onExit, onSettings, onResolution }: { onExit: () => void
           <ArrowLeft size={24} />
         </button>
         <div className="mid">
-          Diese Session · Hand {g.handNo}
+          {g.online ? 'Online mit Freunden' : 'Diese Session'} · Hand {g.handNo}
           <b className={net > 0 ? 'pos' : net < 0 ? 'neg' : ''}>
             {fmtSigned(net)} <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>({fmtBB(net, st.bb)} BB)</span>
           </b>
@@ -71,8 +78,8 @@ export function Table({ onExit, onSettings, onResolution }: { onExit: () => void
         </button>
       </header>
 
-      <main className="felt">
-        <div className="opps">
+      <main className={`felt ${dense ? 'dense' : ''}`}>
+        <div className={`opps ${dense ? 'dense' : ''}`} style={{ '--cols': cols } as React.CSSProperties}>
           {h.seats.slice(1).map((seat) => (
             <SeatView key={seat.id} seat={seat} h={h} turn={turn === seat.id} bubble={g.bubbles[seat.id]} revealed={revealed} showFolded={st.showFolded} winner={winners.has(seat.id)} winBest={winBest} />
           ))}
@@ -160,9 +167,15 @@ export function Table({ onExit, onSettings, onResolution }: { onExit: () => void
             <Btn variant="ghost" style={{ flex: 1 }} disabled={!g.resolution} onClick={onResolution}>
               <Eye size={20} /> Auflösung
             </Btn>
-            <Btn variant="primary" style={{ flex: 1.3 }} disabled={!g.resolution} onClick={() => g.dealHand()}>
-              Nächste Hand
-            </Btn>
+            {g.online ? (
+              <Btn variant="primary" style={{ flex: 1.3 }} disabled={!g.resolution || iAmReady} onClick={() => void ready()}>
+                {iAmReady ? 'Warte auf die anderen' : 'Weiter zur nächsten Hand'}
+              </Btn>
+            ) : (
+              <Btn variant="primary" style={{ flex: 1.3 }} disabled={!g.resolution} onClick={() => g.dealHand()}>
+                Nächste Hand
+              </Btn>
+            )}
           </div>
         )}
         {g.phase === 'broke' && (
@@ -220,7 +233,8 @@ function SeatView({
   const style = seat.style ? BOTS[seat.style as keyof typeof BOTS] : null
   const pos = posOf(h, seat.id)
   const res = h.result
-  const reveal = revealed && !!res && (res.showdown ? !seat.folded || showFolded : showFolded)
+  // Online sind abgelegte Karten anderer unbekannt (hole = -1): die bleiben verdeckt
+  const reveal = revealed && !!res && seat.hole[0] >= 0 && (res.showdown ? !seat.folded || showFolded : showFolded)
   const hname = reveal && res ? (seat.folded ? 'gefoldet' : (res.names[seat.id] ?? 'ohne Showdown')) : null
   const net = revealed && res ? res.net[seat.id] : 0
   const shown = net !== 0 ? { text: fmtSigned(net), kind: net > 0 ? 'win' : 'lose' } : revealed ? undefined : bubble
@@ -247,7 +261,8 @@ function SeatView({
         <div>
           <div className="nm">{seat.name}</div>
           <div className="sub">
-            {pos} · {style?.title.replace('Der ', '').replace('Die ', '')}
+            {pos}
+            {style ? ` · ${style.title.replace('Der ', '').replace('Die ', '')}` : ''}
           </div>
           <div className="stk">{fmt(seat.stack)}</div>
         </div>

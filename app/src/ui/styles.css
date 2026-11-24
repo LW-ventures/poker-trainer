@@ -1795,3 +1795,194 @@ input[type='range']::-moz-range-thumb {
 .say:empty {
   min-height: 0;
 }
+
+/* ------------------------------------------------------------------ Online mit Freunden */
+.onl-join {
+  max-width: 520px;
+}
+.onl-label {
+  display: block;
+  margin-top: 22px;
+  font: 600 13px var(--f-body);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.onl-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid var(--line-2);
+  border-radius: 0;
+  color: var(--text);
+  font: 650 28px var(--f-display);
+  letter-spacing: -0.01em;
+  padding: 8px 0 6px;
+  outline: none;
+}
+.onl-input::placeholder {
+  color: var(--line-2);
+}
+.onl-input:focus {
+  border-bottom-color: var(--accent);
+}
+.onl-err {
+  margin-top: 12px;
+  color: var(--neg);
+  font: 500 14.5px var(--f-body);
+}
+.onl-rules {
+  list-style: none;
+  padding: 0;
+  margin: 26px 0 0;
+  display: grid;
+  gap: 8px;
+  font: 400 14.5px var(--f-body);
+  color: var(--text-2);
+}
+.onl-rules li {
+  padding-left: 14px;
+  border-left: 2px solid var(--line-2);
+}
+.onl-rules b {
+  color: var(--text);
+}
+.onl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 560px;
+}
+.onl-list li {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+}
+.onl-list li:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.onl-list .nm {
+  font: 600 17px var(--f-display);
+}
+.onl-list small {
+  font: 400 12.5px var(--f-body);
+  color: var(--muted);
+}
+.onl-list li.me .nm {
+  color: var(--accent-text);
+}
+.onl-list li.bot .nm {
+  color: var(--text-2);
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--line-2);
+  display: inline-block;
+}
+.dot.on {
+  background: var(--pos);
+}
+
+/* Mehr als vier Plätze: Gegner enger setzen */
+.opps.dense {
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: 6px 4px;
+}
+.opps.dense .seat {
+  gap: 3px;
+}
+.opps.dense .seat .plate {
+  padding: 4px 6px 4px 4px;
+  gap: 5px;
+  max-width: none;
+}
+.opps.dense .avatar {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+}
+.opps.dense .seat .nm {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.opps.dense .seat .sub {
+  font-size: 9.5px;
+}
+.opps.dense .seat .stk {
+  font-size: 11.5px;
+}
+.opps.dense .hud {
+  display: none;
+}
+.opps.dense .pc.sm {
+  --w: clamp(24px, 7vw, 32px);
+}
+.opps.dense .pc.md {
+  --w: clamp(30px, 8.6vw, 40px);
+}
+.opps.dense .seat .cards .pc + .pc {
+  margin-left: -10px;
+}
+.opps.dense .seat .cards.open .pc + .pc {
+  margin-left: -14px;
+}
+.opps.dense .hname {
+  font-size: 10px;
+  min-height: 24px;
+  text-align: center;
+}
+.opps.dense .seat .betline {
+  font-size: 12px;
+}
+.opps.dense .bubble {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.opps.dense .seat-d {
+  width: 17px;
+  height: 17px;
+  font-size: 9px;
+}
+@media (min-width: 900px) and (orientation: landscape) {
+  .felt.dense {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'top'
+      'centre'
+      'hero';
+  }
+  .felt.dense .opps {
+    display: grid;
+    grid-area: top;
+    gap: 8px 10px;
+  }
+  .felt.dense .opps .seat {
+    grid-area: auto;
+    align-self: start;
+    justify-self: stretch;
+  }
+  .felt.dense .opps .seat .plate {
+    max-width: 190px;
+    margin: 0 auto;
+  }
+  .opps.dense .pc.md {
+    --w: clamp(34px, 5.2vh, 48px);
+  }
+  .opps.dense .pc.sm {
+    --w: clamp(28px, 4.2vh, 38px);
+  }
+}
+.felt,
+.opps {
+  min-width: 0;
+}
+.opps.dense .seat .plate > div {
+  overflow: hidden;
+}

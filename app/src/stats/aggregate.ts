@@ -93,6 +93,7 @@ export function aggregate(hands: HandRec[], sessions: SessionRec[], decs: Decisi
   const botMap = new Map<string, { hands: number; net: number; bb: number }>()
   for (const h of hands)
     h.oppStyles.forEach((s, k) => {
+      if (!s) return // Menschen vom Online-Tisch gehören nicht in die Bot-Auswertung
       const e = botMap.get(s) ?? { hands: 0, net: 0, bb: 0 }
       const n = h.oppNets?.[k] ?? 0
       e.hands++

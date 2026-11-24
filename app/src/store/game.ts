@@ -11,7 +11,8 @@ import { act, computePots, startHand, STREET_DE, type Action, type HandState, ty
 import { rangeToMatrix } from '../engine/ranges'
 import { db, safe, type HandRec } from './db'
 import { useProgress } from './progress'
-import { getSettings } from './settings'
+import { getSettings, useSettings } from './settings'
+import { rotateHand, type View } from '../online/core'
 
 export interface Bubble {
   text: string
@@ -65,6 +66,8 @@ interface QuizState {
 }
 
 export interface GameState {
+  /** true, solange am Online-Tisch gespielt wird; der Server leitet dann die Hand */
+  online: boolean
   session: { id: number | null; startedAt: number; rebuys: number; hands: number; net: number } | null
   bots: BotId[]
   boardShown: number
@@ -94,7 +97,31 @@ export interface GameState {
   closeResolution: () => void
   openResolution: () => void
   leave: () => void
+  /** Online: neue Sicht vom Server übernehmen */
+  applyOnlineView: (view: View) => void
+  /** Online: Spiel ist zu Ende (zurück in der Lobby) */
+  onlineEnded: () => void
 }
+
+// Anbindung an den Online-Tisch (setzt store/online.ts)
+let onlineSend: ((a: Action, h: HandState) => void) | null = null
+let onlineLeaveHook: (() => void) | null = null
+export const setOnlineHooks = (send: typeof onlineSend, leave: typeof onlineLeaveHook) => {
+  onlineSend = send
+  onlineLeaveHook = leave
+}
+let onlineHandNo = 0
+let onlineLogLen = 0
+let onlineStreet: Street = 'preflop'
+let onlineKey = ''
+let onlineOverNo = 0
+let onlineV = -1
+/** Nach einem fehlgeschlagenen Senden: den Zug beim nächsten Abruf neu aufbauen */
+export const onlineRetry = () => {
+  onlineKey = ''
+  onlineV = -1
+}
+let prevCfg: { sb: number; bb: number; startStack: number } | null = null
 
 let timer: ReturnType<typeof setTimeout> | null = null
 const clear = () => {
@@ -113,7 +140,10 @@ const thinkMs = (fast: boolean) => {
 }
 
 function bubbleOf(h: HandState): { seat: number; b: Bubble } {
-  const r = h.log[h.log.length - 1]
+  return bubbleOfRec(h.log[h.log.length - 1])
+}
+
+function bubbleOfRec(r: HandState['log'][number]): { seat: number; b: Bubble } {
   const allin = r.allIn ? ' (All-in)' : ''
   const f = (n: number) => Math.round(n).toLocaleString('de-DE')
   if (r.type === 'fold') return { seat: r.seat, b: { text: 'Fold', kind: 'fold' } }
@@ -254,7 +284,7 @@ export const useGame = create<GameState>((set, get) => {
     // Gewinnchancen je Straße
     const alive = h.seats.filter((p) => !p.folded).map((p) => p.id)
     const curveSeats = alive.length >= 2 ? alive : h.seats.map((p) => p.id)
-    const showCurve = res.showdown || s.showFolded
+    const showCurve = res.showdown || (s.showFolded && !st.online) // online sind abgelegte Karten unbekannt
     const curve: Resolution['curve'] = []
     if (showCurve) {
       const lens = [0, 3, 4, 5].filter((n) => n <= h.board.length)
@@ -349,7 +379,7 @@ export const useGame = create<GameState>((set, get) => {
         folded: p.folded,
         net: res.net[p.id],
         handName: res.names[p.id],
-        shown: p.human || (res.showdown && !p.folded) || s.showFolded,
+        shown: (p.human || (res.showdown && !p.folded) || s.showFolded) && p.hole[0] >= 0,
       })),
       showdown: res.showdown,
       net,
@@ -375,11 +405,126 @@ export const useGame = create<GameState>((set, get) => {
       resolutionOpen: false,
       boardShown: h.board.length,
       revealed: true,
-      phase: stacks[0] <= 0 ? 'broke' : 'over',
+      phase: !st.online && stacks[0] <= 0 ? 'broke' : 'over',
     })
   }
 
+  // ------------------------------------------------------------ Online-Tisch
+
+  function onlineSession(view: View) {
+    const s = getSettings()
+    prevCfg = { sb: s.sb, bb: s.bb, startStack: s.startStack }
+    useSettings.getState().set({ sb: view.cfg.sb, bb: view.cfg.bb, startStack: view.cfg.startStack })
+    const startedAt = Date.now()
+    set({ session: { id: null, startedAt, rebuys: 0, hands: 0, net: 0 } })
+    void safe(() => db.sessions.add({ startedAt, startStack: view.cfg.startStack, bb: view.cfg.bb, rebuys: 0, hands: 0, net: 0, opps: [] }), 0).then((id) => {
+      const ses = get().session
+      if (ses && ses.startedAt === startedAt) set({ session: { ...ses, id: id || null } })
+    })
+  }
+
+  function applyOnlineView(view: View) {
+    const st = get()
+    if (view.status !== 'playing') {
+      if (st.online) get().onlineEnded()
+      return
+    }
+    if (view.mySeat < 0 || !view.hand) return // wartet auf die nächste Hand
+    if (st.online && view.v === onlineV) return
+    onlineV = view.v
+
+    const raw = view.hand
+    const me = view.mySeat
+    const h = rotateHand(raw, me)
+    const rotIdx = (i: number) => (i - me + raw.n) % raw.n
+    const firstTime = !st.online
+    if (firstTime) {
+      clear()
+      onlineHandNo = 0
+      onlineOverNo = 0
+      onlineKey = ''
+      onlineSession(view)
+    }
+    const newHand = view.handNo !== onlineHandNo
+    const botIds = [...new Set(view.seats.map((s) => s.style).filter((x): x is BotId => !!x))]
+
+    if (newHand) {
+      clear()
+      onlineHandNo = view.handNo
+      onlineLogLen = 0
+      onlineStreet = 'preflop'
+      onlineKey = ''
+      set({
+        online: true,
+        bots: botIds,
+        handNo: view.handNo,
+        phase: 'think',
+        spot: null,
+        quiz: null,
+        bubbles: {},
+        decisions: [],
+        resolution: null,
+        resolutionOpen: false,
+        lastRanges: [],
+        newLevel: null,
+        boardShown: 0,
+        revealed: false,
+        asked: [],
+      })
+    }
+
+    // Blasen für neue Aktionen
+    let bubbles = { ...get().bubbles }
+    if (h.street !== onlineStreet && !h.over) bubbles = {}
+    for (let k = onlineLogLen; k < h.log.length; k++) {
+      const r = h.log[k]
+      if (r.type === 'blind' || r.street !== h.street) continue
+      const { seat, b } = bubbleOfRec(r)
+      bubbles[seat] = b
+    }
+    onlineLogLen = h.log.length
+    onlineStreet = h.street
+
+    set({
+      online: true,
+      hand: h,
+      bubbles,
+      botBluffs: view.bluffs.map((b) => ({ seat: rotIdx(b.seat), street: b.street })),
+      boardShown: h.over ? get().boardShown : h.board.length,
+    })
+
+    if (h.over) {
+      if (onlineOverNo !== view.handNo) {
+        onlineOverNo = view.handNo
+        set({ boardShown: h.runoutFrom >= 0 ? h.runoutFrom : h.board.length, revealed: false, phase: 'think' })
+        pump()
+      }
+      return
+    }
+    if (h.toAct === 0) {
+      const key = `${view.handNo}:${h.log.length}`
+      if (key !== onlineKey) {
+        onlineKey = key
+        heroTurn()
+      }
+    } else if (get().phase !== 'think') {
+      set({ phase: 'think', quiz: null, spot: null })
+    }
+  }
+
   return {
+    online: false,
+    applyOnlineView,
+    onlineEnded: () => {
+      clear()
+      if (prevCfg) useSettings.getState().set(prevCfg)
+      prevCfg = null
+      onlineV = -1
+      onlineHandNo = 0
+      const ses = get().session
+      if (ses?.id) void safe(() => db.sessions.update(ses.id!, { endedAt: Date.now() }), 0)
+      set({ online: false, hand: null, phase: 'idle', session: null, resolution: null, resolutionOpen: false, quiz: null, spot: null, bubbles: {} })
+    },
     session: null,
     bots: ['rex', 'max', 'carla'],
     stacks: [0, 0, 0, 0],
@@ -424,6 +569,7 @@ export const useGame = create<GameState>((set, get) => {
     },
 
     dealHand: () => {
+      if (get().online) return // der Server teilt aus
       clear()
       const st = get()
       const s = getSettings()
@@ -484,6 +630,12 @@ export const useGame = create<GameState>((set, get) => {
         facedBluff,
       }
       void featOf
+      if (st.online) {
+        // Der Server führt die Aktion aus und schickt die neue Sicht zurück
+        set({ decisions: [...st.decisions, dec], spot: null, phase: 'think' })
+        onlineSend?.(a, h)
+        return
+      }
       set({ decisions: [...st.decisions, dec], quiz: st.quiz && st.quiz.answered ? st.quiz : st.quiz, spot: null })
       apply(a)
       set({ phase: 'think' })
@@ -536,6 +688,11 @@ export const useGame = create<GameState>((set, get) => {
 
     leave: () => {
       clear()
+      if (get().online) {
+        onlineLeaveHook?.()
+        get().onlineEnded()
+        return
+      }
       const ses = get().session
       if (ses?.id) void safe(() => db.sessions.update(ses.id!, { endedAt: Date.now() }), 0)
       set({ hand: null, phase: 'idle', session: null, resolution: null, resolutionOpen: false, quiz: null, spot: null })

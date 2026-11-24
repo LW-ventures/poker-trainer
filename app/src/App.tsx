@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { MotionConfig } from 'motion/react'
 import { useGame } from './store/game'
+import { useOnline } from './store/online'
 import { useSettings } from './store/settings'
 import { Drill, type DrillSpec } from './ui/screens/Drill'
 import { Facts } from './ui/screens/Facts'
 import { Home, type ScreenName } from './ui/screens/Home'
 import { Learn } from './ui/screens/Learn'
+import { Online } from './ui/screens/Online'
 import { Resolution } from './ui/screens/Resolution'
 import { Settings } from './ui/screens/Settings'
 import { Stats } from './ui/screens/Stats'
@@ -34,6 +36,7 @@ export default function App() {
   const [drill, setDrill] = useState<DrillSpec>({ kind: 'mixed' })
   const theme = useSettings((s) => s.theme)
   const fourColor = useSettings((s) => s.fourColor)
+  const inLobby = useOnline((s) => s.status === 'on')
   const resolutionOpen = useGame((s) => s.resolutionOpen)
   const hasRes = useGame((s) => !!s.resolution)
   const openRes = useGame((s) => s.openResolution)
@@ -57,7 +60,8 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       {screen === 'home' && <Home go={go} />}
-      {screen === 'table' && <Table onExit={() => setScreen('home')} onSettings={() => go('settings')} onResolution={openRes} />}
+      {screen === 'table' && <Table onExit={() => setScreen(inLobby ? 'online' : 'home')} onSettings={() => go('settings')} onResolution={openRes} />}
+      {screen === 'online' && <Online onBack={() => setScreen('home')} onTable={() => setScreen('table')} />}
       {screen === 'table' && resolutionOpen && hasRes && <Resolution onClose={closeRes} />}
       {screen === 'stats' && (
         <Stats

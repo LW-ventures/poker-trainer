@@ -4,7 +4,7 @@ import { evaluate, describe, bestFive } from './evaluator'
 export type Street = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown'
 export const STREETS: Street[] = ['preflop', 'flop', 'turn', 'river']
 export const STREET_DE: Record<Street, string> = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River', showdown: 'Showdown' }
-export type Position = 'BTN' | 'SB' | 'BB' | 'UTG'
+export type Position = 'BTN' | 'SB' | 'BB' | 'UTG' | 'MP' | 'CO'
 
 export interface Seat {
   id: number
@@ -79,8 +79,16 @@ export interface HandState {
   runoutAlive: number[] // wer war beim Aufdecken noch dabei
 }
 
-export const posOf = (h: HandState, seat: number): Position =>
-  seat === h.button ? 'BTN' : seat === h.sb ? 'SB' : seat === h.bb ? 'BB' : 'UTG'
+/** Position relativ zum Button. Bei 4 Spielern: BTN, SB, BB, UTG (wie immer), ab 5: Cutoff und Middle Position. */
+export const posOf = (h: HandState, seat: number): Position => {
+  if (seat === h.button) return 'BTN'
+  if (seat === h.sb) return 'SB'
+  if (seat === h.bb) return 'BB'
+  if (h.n <= 4) return 'UTG'
+  const d = (seat - h.button + h.n) % h.n // 3 = erster Platz links vom Big Blind
+  if (d === 3) return 'UTG'
+  return d === h.n - 1 ? 'CO' : 'MP'
+}
 
 export const potOf = (h: HandState) => h.seats.reduce((s, p) => s + p.committed, 0)
 

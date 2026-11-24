@@ -21,10 +21,10 @@ export function Resolution({ onClose }: { onClose: () => void }) {
   const [showRange, setShowRange] = useState<number | null>(null)
   if (!r) return null
   const luck = r.net - r.evNet
-  const oppColors = ['var(--text)', 'var(--text-2)', 'var(--muted)']
-  const oppDash = [undefined, '6 4', '2 4']
+  const oppColors = ['var(--text)', 'var(--text-2)', 'var(--muted)', 'var(--text)', 'var(--text-2)', 'var(--muted)', 'var(--text)']
+  const oppDash = [undefined, '6 4', '2 4', '10 3 2 3', '4 4', '1 3', '14 4']
   const oppIdx = (id: number) => r.curveSeats.filter((i) => i !== 0).indexOf(id)
-  const colorOf = (id: number) => (id === 0 ? 'var(--accent)' : oppColors[oppIdx(id) % 3])
+  const colorOf = (id: number) => (id === 0 ? 'var(--accent)' : oppColors[oppIdx(id) % 7])
   const heroIdx = r.curveSeats.indexOf(0)
   const bluffSeats = [...new Set(r.bluffs.map((b) => b.seat))]
 
@@ -93,7 +93,7 @@ export function Resolution({ onClose }: { onClose: () => void }) {
                 name: r.seats[id].name,
                 values: r.curve.map((c) => c.eq[k]),
                 color: colorOf(id),
-                dash: id === 0 ? undefined : oppDash[oppIdx(id) % 3],
+                dash: id === 0 ? undefined : oppDash[oppIdx(id) % 7],
               }))}
             />
             <div className="legend" style={{ marginTop: 6 }}>

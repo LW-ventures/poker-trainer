@@ -31,7 +31,7 @@ export function probs(style: BotStyle, street: Street, pos: Position, sit: Situa
   const bb = sit.bb
 
   if (street === 'preflop') {
-    const mult = pos === 'BTN' ? 1 : pos === 'SB' ? 0.95 : pos === 'UTG' ? 0.82 : 0.9
+    const mult = pos === 'BTN' ? 1 : pos === 'CO' ? 0.97 : pos === 'SB' ? 0.95 : pos === 'UTG' ? 0.82 : 0.9
     const free = sit.toCall === 0
     if (sit.preRaises === 0) {
       const playThr = 1 - style.openPlay * mult

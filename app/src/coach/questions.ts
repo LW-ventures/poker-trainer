@@ -186,11 +186,15 @@ const REF_EQ: Record<number, string> = {
   1: 'AA 85 %, KK 82 %, AKs 67 %, 77 66 %, QJs 61 %, 72o 35 %',
   2: 'AA 74 %, KK 69 %, AKs 51 %, 77 47 %, QJs 44 %, 72o 20 %',
   3: 'AA 64 %, KK 58 %, AKs 42 %, 77 35 %, QJs 36 %, 72o 14 %',
+  4: 'AA 56 %, KK 50 %, AKs 35 %, 77 27 %, QJs 30 %, 72o 11 %',
+  5: 'AA 49 %, KK 43 %, AKs 31 %, 77 22 %, QJs 26 %, 72o 9 %',
+  6: 'AA 44 %, KK 37 %, AKs 27 %, 77 19 %, QJs 23 %, 72o 7 %',
+  7: 'AA 39 %, KK 33 %, AKs 25 %, 77 16 %, QJs 21 %, 72o 6 %',
 }
-const NUM_DE = ['keine', 'eine', 'zwei', 'drei', 'vier']
+const NUM_DE = ['keine', 'eine', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht']
 
 export function qPreflopEq(hole: [Card, Card], opponents = 3, rng?: () => number): Question {
-  const n = Math.max(1, Math.min(3, opponents))
+  const n = Math.max(1, Math.min(7, opponents))
   const eq = equityVsRandom(hole, [], n, 12000, rng) * 100
   const fair = 100 / (n + 1)
   return {

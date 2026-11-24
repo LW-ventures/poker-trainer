@@ -4,3 +4,4 @@ app/dist
 app/dev-dist
 *.log
 .DS_Store
+app/.dev
